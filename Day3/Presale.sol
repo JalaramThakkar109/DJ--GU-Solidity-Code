@@ -20,13 +20,14 @@ contract Crowdfunding{
     uint endTime;
     uint bonus;
     uint claimLimit;
-    uint perClaimTime;
+    uint perClaimTime;  //in mins
     string ideaDiscription;
     uint totalRaised;
 
     mapping(address => uint) public numberOfUsersToken;
     mapping(address => uint) public bonusForUser;
     mapping(address => uint) public totalClaimedTokensByUser;
+    mapping(address => uint) public nextTokenClaimTime;
 
     constructor(string memory _name,
     string memory _symbol,
@@ -70,8 +71,9 @@ contract Crowdfunding{
         require(msg.value > 0, "Please send some ETH");
         require(totalRaised < hardCaps, "Presale is completed");
 
-        numberOfUsersToken[msg.sender] = msg.value*pricePerWei;
+        numberOfUsersToken[msg.sender] = (msg.value*pricePerWei);
         totalRaised = convertWeiToETH(msg.value);
+        nextTokenClaimTime[msg.sender] = endTime;
     }
 
     function claimToken() public {
@@ -79,9 +81,12 @@ contract Crowdfunding{
         require(numberOfUsersToken[msg.sender] > 0, "You have not tokens to claim");
         require(totalRaised > softCaps, "Presale is not successful");
         require(totalClaimedTokensByUser[msg.sender] <= numberOfUsersToken[msg.sender], "Your all the tokens are claimed");
+        require(nextTokenClaimTime[msg.sender] <= now, "Your claim cycle is not completed");
+        
         uint amountToClaim = numberOfUsersToken[msg.sender] * (claimLimit/100);
-        erc20.transfer(msg.sender,amountToClaim);
+        nextTokenClaimTime[msg.sender] = now + (60*perClaimTime);
         totalClaimedTokensByUser[msg.sender] = numberOfUsersToken[msg.sender] * (claimLimit/100);
+        require(erc20.transfer(msg.sender,amountToClaim),"ERC20 Token Execuation Fail");
     }
 
     function convertWeiToETH(uint number) internal pure returns(uint) {
